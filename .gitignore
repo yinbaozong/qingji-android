@@ -1,0 +1,26 @@
+# Android / Gradle
+.gradle/
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android Studio and local SDK configuration
+.idea/
+*.iml
+local.properties
+
+# Local test material and generated exports
+aliyun_asr_test.json
+*.apk
+*.aab
+
+# JVM crash dumps and replay logs
+*.hprof
+hs_err_pid*.log
+replay_pid*.log
+
+# OS files
+.DS_Store
+Thumbs.db
