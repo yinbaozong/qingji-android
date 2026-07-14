@@ -40,6 +40,11 @@ class SettingsRepository(private val context: Context) {
         val analysisApiPath = stringPreferencesKey("analysis_api_path")
         val analysisModel = stringPreferencesKey("analysis_model")
         val analysisApiKey = stringPreferencesKey("analysis_api_key")
+        val minimaxAnalysisApiKey = stringPreferencesKey("minimax_analysis_api_key")
+        val qwenAnalysisApiKey = stringPreferencesKey("qwen_analysis_api_key")
+        val deepSeekAnalysisApiKey = stringPreferencesKey("deepseek_analysis_api_key")
+        val zhipuAnalysisApiKey = stringPreferencesKey("zhipu_analysis_api_key")
+        val customAnalysisApiKey = stringPreferencesKey("custom_analysis_api_key")
         val analysisPromptTemplate = stringPreferencesKey("analysis_prompt_template")
         val customTags = stringPreferencesKey("custom_tags")
     }
@@ -73,6 +78,11 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.analysisApiPath] = next.analysisApiPath
             prefs[Keys.analysisModel] = next.analysisModel
             prefs[Keys.analysisApiKey] = next.analysisApiKey
+            prefs[Keys.minimaxAnalysisApiKey] = next.minimaxAnalysisApiKey
+            prefs[Keys.qwenAnalysisApiKey] = next.qwenAnalysisApiKey
+            prefs[Keys.deepSeekAnalysisApiKey] = next.deepSeekAnalysisApiKey
+            prefs[Keys.zhipuAnalysisApiKey] = next.zhipuAnalysisApiKey
+            prefs[Keys.customAnalysisApiKey] = next.customAnalysisApiKey
             prefs[Keys.analysisPromptTemplate] = next.analysisPromptTemplate
             prefs[Keys.customTags] = next.customTags
         }
@@ -95,6 +105,24 @@ class SettingsRepository(private val context: Context) {
         val analysisService = this[Keys.analysisServiceType]
             ?.let { runCatching { AnalysisServiceType.valueOf(it) }.getOrNull() }
             ?: AppSettings().analysisServiceType
+        val legacyAnalysisApiKey = this[Keys.analysisApiKey].orEmpty()
+        val minimaxKey = this[Keys.minimaxAnalysisApiKey]
+            ?: legacyAnalysisApiKey.takeIf { analysisService == AnalysisServiceType.MINIMAX }.orEmpty()
+        val qwenKey = this[Keys.qwenAnalysisApiKey]
+            ?: legacyAnalysisApiKey.takeIf { analysisService == AnalysisServiceType.QWEN }.orEmpty()
+        val deepSeekKey = this[Keys.deepSeekAnalysisApiKey]
+            ?: legacyAnalysisApiKey.takeIf { analysisService == AnalysisServiceType.DEEPSEEK }.orEmpty()
+        val zhipuKey = this[Keys.zhipuAnalysisApiKey]
+            ?: legacyAnalysisApiKey.takeIf { analysisService == AnalysisServiceType.ZHIPU }.orEmpty()
+        val customKey = this[Keys.customAnalysisApiKey]
+            ?: legacyAnalysisApiKey.takeIf { analysisService == AnalysisServiceType.CUSTOM }.orEmpty()
+        val activeAnalysisKey = when (analysisService) {
+            AnalysisServiceType.MINIMAX -> minimaxKey
+            AnalysisServiceType.QWEN -> qwenKey
+            AnalysisServiceType.DEEPSEEK -> deepSeekKey
+            AnalysisServiceType.ZHIPU -> zhipuKey
+            AnalysisServiceType.CUSTOM -> customKey
+        }
 
         return AppSettings(
             themeMode = themeMode,
@@ -118,7 +146,12 @@ class SettingsRepository(private val context: Context) {
             analysisBaseUrl = this[Keys.analysisBaseUrl] ?: AppSettings().analysisBaseUrl,
             analysisApiPath = this[Keys.analysisApiPath] ?: AppSettings().analysisApiPath,
             analysisModel = this[Keys.analysisModel] ?: AppSettings().analysisModel,
-            analysisApiKey = this[Keys.analysisApiKey] ?: "",
+            analysisApiKey = activeAnalysisKey,
+            minimaxAnalysisApiKey = minimaxKey,
+            qwenAnalysisApiKey = qwenKey,
+            deepSeekAnalysisApiKey = deepSeekKey,
+            zhipuAnalysisApiKey = zhipuKey,
+            customAnalysisApiKey = customKey,
             analysisPromptTemplate = this[Keys.analysisPromptTemplate] ?: "",
             customTags = this[Keys.customTags] ?: ""
         )

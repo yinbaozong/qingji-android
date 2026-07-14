@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color as AndroidColor
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,12 +23,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -85,6 +89,17 @@ fun DreamJournalApp(container: AppContainer) {
 
     QingJiTheme(themeMode = settingsUiState.settings.themeMode) {
         val context = LocalContext.current
+        val view = LocalView.current
+        val lightSystemBars = settingsUiState.settings.themeMode != com.dreamjournal.app.domain.settings.ThemeMode.DARK
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            window.statusBarColor = AndroidColor.TRANSPARENT
+            window.navigationBarColor = AndroidColor.TRANSPARENT
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = lightSystemBars
+                isAppearanceLightNavigationBars = lightSystemBars
+            }
+        }
         val permissionLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
@@ -127,6 +142,7 @@ fun DreamJournalApp(container: AppContainer) {
         val showBottomBar = currentRoute != null && !currentRoute.startsWith("detail/")
 
         Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
                 if (showBottomBar) {
                     NavigationBar(
@@ -254,15 +270,13 @@ fun DreamJournalApp(container: AppContainer) {
                         onSetSpeechBaseUrl = settingsViewModel::setSpeechBaseUrl,
                         onSetSpeechApiPath = settingsViewModel::setSpeechApiPath,
                         onSetSpeechModel = settingsViewModel::setSpeechModel,
-                        onSetBaiduSpeechUrl = settingsViewModel::setBaiduSpeechUrl,
-                        onSetBaiduTokenUrl = settingsViewModel::setBaiduTokenUrl,
                         onSetBaiduApiKey = settingsViewModel::setBaiduApiKey,
                         onSetBaiduSecretKey = settingsViewModel::setBaiduSecretKey,
                         onSetBaiduAppId = settingsViewModel::setBaiduAppId,
-                        onSetBaiduDevPid = settingsViewModel::setBaiduDevPid,
                         onSetAliyunSpeechApiKey = settingsViewModel::setAliyunSpeechApiKey,
-                        onSetAliyunSpeechModel = settingsViewModel::setAliyunSpeechModel,
                         onSetAnalysisModel = settingsViewModel::setAnalysisModel,
+                        onSetAnalysisBaseUrl = settingsViewModel::setAnalysisBaseUrl,
+                        onSetAnalysisApiPath = settingsViewModel::setAnalysisApiPath,
                         onSetSpeechApiKey = settingsViewModel::setSpeechApiKey,
                         onSetAnalysisApiKey = settingsViewModel::setAnalysisApiKey,
                         onSetAnalysisPromptTemplate = settingsViewModel::setAnalysisPromptTemplate,
@@ -272,9 +286,6 @@ fun DreamJournalApp(container: AppContainer) {
                         onSetExportEndDate = settingsViewModel::setExportEndDate,
                         onSetExportFormat = settingsViewModel::setExportFormat,
                         onToggleAdvancedSettings = settingsViewModel::toggleAdvancedSettings,
-                        onUseMiniMaxDefaults = settingsViewModel::useMiniMaxDefaults,
-                        onUseQwenDefaults = settingsViewModel::useQwenDefaults,
-                        onUseAliyunSpeechDefaults = settingsViewModel::useAliyunSpeechDefaults,
                         onSaveSpeechSettings = settingsViewModel::saveAndTestSpeechSettings,
                         onSaveAnalysisSettings = settingsViewModel::saveAndTestAnalysisSettings,
                         onGenerateTodaySummary = settingsViewModel::generateTodaySummary,
@@ -315,6 +326,7 @@ fun DreamJournalApp(container: AppContainer) {
                         onBack = { navController.popBackStack() },
                         onTitleChange = detailViewModel::onTitleChange,
                         onTagToggle = detailViewModel::onTagToggle,
+                        onAddCustomTag = detailViewModel::addCustomTag,
                         onUpdateTextBlock = detailViewModel::updateTextBlock,
                         onFocusTextBlock = detailViewModel::focusTextBlock,
                         onSetImageWidth = detailViewModel::setImageWidth,

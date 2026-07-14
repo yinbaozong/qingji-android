@@ -190,6 +190,25 @@ class DetailViewModel(
         }
     }
 
+    fun addCustomTag(value: String) {
+        val tag = value.trim().replace(",", "").take(16)
+        if (tag.isBlank()) return
+        viewModelScope.launch {
+            settingsRepository.update { settings ->
+                val tags = (parseCustomTags(settings.customTags) + tag).distinct()
+                settings.copy(customTags = tags.joinToString("\n"))
+            }
+        }
+        _uiState.update { current ->
+            current.copy(
+                availableTags = (current.availableTags + tag).distinct(),
+                draftTags = (current.draftTags + tag).distinct(),
+                isDirty = true,
+                statusMessage = "已添加标签：$tag"
+            )
+        }
+    }
+
     fun addPhotos(uris: List<Uri>) {
         if (uris.isEmpty()) return
         viewModelScope.launch {

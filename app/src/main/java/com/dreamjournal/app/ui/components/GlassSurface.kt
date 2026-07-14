@@ -14,10 +14,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.dreamjournal.app.ui.theme.DayAccent
-import com.dreamjournal.app.ui.theme.NightAccent
 
 @Composable
 fun GlassBackground(
@@ -33,7 +32,7 @@ fun GlassBackground(
                 Brush.verticalGradient(
                     listOf(
                         colors.background,
-                        if (dark) Color(0xFF172421) else Color(0xFFEFE9DE),
+                        if (dark) Color(0xFF16201E) else Color(0xFFE7EEEA),
                         colors.background
                     )
                 )
@@ -42,7 +41,7 @@ fun GlassBackground(
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(DayAccent.copy(alpha = if (dark) 0.13f else 0.19f), Color.Transparent),
+                    colors = listOf(colors.primary.copy(alpha = if (dark) 0.14f else 0.16f), Color.Transparent),
                     center = Offset(size.width * 0.12f, size.height * 0.16f),
                     radius = size.width * 0.82f
                 ),
@@ -51,7 +50,7 @@ fun GlassBackground(
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(NightAccent.copy(alpha = if (dark) 0.19f else 0.15f), Color.Transparent),
+                    colors = listOf(colors.secondary.copy(alpha = if (dark) 0.12f else 0.10f), Color.Transparent),
                     center = Offset(size.width * 0.92f, size.height * 0.54f),
                     radius = size.width * 0.90f
                 ),
@@ -72,10 +71,17 @@ fun Modifier.glassSurface(
     val surface = MaterialTheme.colorScheme.surface
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     return this
+        .shadow(
+            elevation = 18.dp,
+            shape = shape,
+            ambientColor = Color.Black.copy(alpha = if (dark) 0.24f else 0.08f),
+            spotColor = Color.Black.copy(alpha = if (dark) 0.30f else 0.10f)
+        )
         .background(
             brush = Brush.linearGradient(
                 listOf(
-                    surface.copy(alpha = alpha + if (dark) 0.05f else 0.13f),
+                    Color.White.copy(alpha = if (dark) 0.08f else 0.46f),
+                    surface.copy(alpha = alpha + if (dark) 0.04f else 0.10f),
                     surface.copy(alpha = alpha.coerceAtMost(0.78f))
                 )
             ),

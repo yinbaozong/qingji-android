@@ -94,6 +94,7 @@ fun DetailScreen(
     onBack: () -> Unit,
     onTitleChange: (String) -> Unit,
     onTagToggle: (String) -> Unit,
+    onAddCustomTag: (String) -> Unit,
     onUpdateTextBlock: (Long, String) -> Unit,
     onFocusTextBlock: (Long) -> Unit,
     onSetImageWidth: (Long, Int) -> Unit,
@@ -329,7 +330,8 @@ fun DetailScreen(
             TagSelector(
                 availableTags = uiState.availableTags,
                 selectedTags = uiState.draftTags,
-                onToggle = onTagToggle
+                onToggle = onTagToggle,
+                onAddCustomTag = onAddCustomTag
             )
         }
     }
@@ -341,9 +343,11 @@ fun DetailScreen(
 private fun TagSelector(
     availableTags: List<String>,
     selectedTags: List<String>,
-    onToggle: (String) -> Unit
+    onToggle: (String) -> Unit,
+    onAddCustomTag: (String) -> Unit
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var tagInput by rememberSaveable { mutableStateOf("") }
     val topicTags = listOf("日常", "工作", "灵感", "旅行", "家人", "健康")
     val feelingTags = listOf("开心", "平静", "疲惫", "低落", "噩梦", "混乱")
     val customTags = availableTags.filterNot { it in topicTags || it in feelingTags }
@@ -377,6 +381,21 @@ private fun TagSelector(
                 TagGroup("主题", topicTags.filter(availableTags::contains), selectedTags, onToggle)
                 TagGroup("感受", feelingTags.filter(availableTags::contains), selectedTags, onToggle)
                 if (customTags.isNotEmpty()) TagGroup("自定义", customTags, selectedTags, onToggle)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = tagInput,
+                        onValueChange = { tagInput = it.take(16) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        placeholder = { Text("输入自己的标签") },
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Button(
+                        onClick = { onAddCustomTag(tagInput); tagInput = "" },
+                        enabled = tagInput.isNotBlank(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) { Text("添加") }
+                }
             }
         }
     }

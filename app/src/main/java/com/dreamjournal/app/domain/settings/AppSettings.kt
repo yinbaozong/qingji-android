@@ -20,7 +20,47 @@ enum class AnalysisProviderType {
 
 enum class AnalysisServiceType {
     MINIMAX,
-    QWEN
+    QWEN,
+    DEEPSEEK,
+    ZHIPU,
+    CUSTOM
+}
+
+data class AnalysisServicePreset(
+    val displayName: String,
+    val baseUrl: String,
+    val apiPath: String = "/chat/completions",
+    val models: List<String>
+) {
+    val defaultModel: String get() = models.first()
+}
+
+fun AnalysisServiceType.preset(): AnalysisServicePreset = when (this) {
+    AnalysisServiceType.MINIMAX -> AnalysisServicePreset(
+        displayName = "MiniMax",
+        baseUrl = "https://api.minimaxi.com/v1",
+        models = listOf("MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5")
+    )
+    AnalysisServiceType.QWEN -> AnalysisServicePreset(
+        displayName = "通义千问",
+        baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        models = listOf("qwen3.7-plus", "qwen-plus", "qwen-turbo")
+    )
+    AnalysisServiceType.DEEPSEEK -> AnalysisServicePreset(
+        displayName = "DeepSeek",
+        baseUrl = "https://api.deepseek.com",
+        models = listOf("deepseek-v4-flash", "deepseek-v4-pro")
+    )
+    AnalysisServiceType.ZHIPU -> AnalysisServicePreset(
+        displayName = "智谱 GLM",
+        baseUrl = "https://open.bigmodel.cn/api/paas/v4",
+        models = listOf("glm-5.1", "glm-4.7")
+    )
+    AnalysisServiceType.CUSTOM -> AnalysisServicePreset(
+        displayName = "自定义服务",
+        baseUrl = "",
+        models = listOf("model-name")
+    )
 }
 
 data class AppSettings(
@@ -46,6 +86,11 @@ data class AppSettings(
     val analysisApiPath: String = "/chat/completions",
     val analysisModel: String = "MiniMax-M2.5",
     val analysisApiKey: String = "",
+    val minimaxAnalysisApiKey: String = "",
+    val qwenAnalysisApiKey: String = "",
+    val deepSeekAnalysisApiKey: String = "",
+    val zhipuAnalysisApiKey: String = "",
+    val customAnalysisApiKey: String = "",
     val analysisPromptTemplate: String = "",
     val customTags: String = ""
 )

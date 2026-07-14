@@ -6,6 +6,7 @@ import com.dreamjournal.app.domain.model.AiChatMessage
 import com.dreamjournal.app.domain.model.RecordType
 import com.dreamjournal.app.domain.settings.AnalysisProviderType
 import com.dreamjournal.app.domain.settings.SpeechProviderType
+import com.dreamjournal.app.domain.settings.preset
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -100,8 +101,10 @@ class AiService(
         when (settings.analysisProviderType) {
             AnalysisProviderType.MOCK -> Result.success("演示模式无需额外配置")
             AnalysisProviderType.OPENAI_COMPATIBLE -> runCatching {
-                require(settings.analysisApiKey.isNotBlank()) { "MiniMax API Key 不能为空" }
-                require(settings.analysisModel.isNotBlank()) { "MiniMax 模型不能为空" }
+                val serviceName = settings.analysisServiceType.preset().displayName
+                require(settings.analysisApiKey.isNotBlank()) { "$serviceName API Key 不能为空" }
+                require(settings.analysisBaseUrl.isNotBlank()) { "$serviceName 服务地址不能为空" }
+                require(settings.analysisModel.isNotBlank()) { "$serviceName 模型不能为空" }
                 val provider = OpenAiCompatibleTextAnalysisProvider(
                     baseUrl = settings.analysisBaseUrl,
                     apiPath = settings.analysisApiPath,
@@ -109,7 +112,7 @@ class AiService(
                     model = settings.analysisModel
                 )
                 provider.analyzeDream("这是一段用于测试配置的个人记录：今天完成了计划中的事情，晚上想简单回顾一下。").getOrThrow()
-                "MiniMax 配置可用"
+                "$serviceName 配置可用"
             }
         }
     }

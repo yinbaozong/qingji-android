@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.dreamjournal.app.domain.settings.AnalysisProviderType
@@ -63,9 +64,11 @@ import com.dreamjournal.app.domain.settings.AnalysisServiceType
 import com.dreamjournal.app.domain.model.ExportFormat
 import com.dreamjournal.app.domain.settings.SpeechProviderType
 import com.dreamjournal.app.domain.settings.ThemeMode
+import com.dreamjournal.app.domain.settings.preset
 import com.dreamjournal.app.ui.components.QingJiBrandTitle
 import com.dreamjournal.app.ui.components.GlassBackground
 import com.dreamjournal.app.ui.components.glassCardColor
+import com.dreamjournal.app.ui.components.glassSurface
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
@@ -85,15 +88,13 @@ fun SettingsScreen(
     onSetSpeechBaseUrl: (String) -> Unit,
     onSetSpeechApiPath: (String) -> Unit,
     onSetSpeechModel: (String) -> Unit,
-    onSetBaiduSpeechUrl: (String) -> Unit,
-    onSetBaiduTokenUrl: (String) -> Unit,
     onSetBaiduApiKey: (String) -> Unit,
     onSetBaiduSecretKey: (String) -> Unit,
     onSetBaiduAppId: (String) -> Unit,
-    onSetBaiduDevPid: (String) -> Unit,
     onSetAliyunSpeechApiKey: (String) -> Unit,
-    onSetAliyunSpeechModel: (String) -> Unit,
     onSetAnalysisModel: (String) -> Unit,
+    onSetAnalysisBaseUrl: (String) -> Unit,
+    onSetAnalysisApiPath: (String) -> Unit,
     onSetSpeechApiKey: (String) -> Unit,
     onSetAnalysisApiKey: (String) -> Unit,
     onSetAnalysisPromptTemplate: (String) -> Unit,
@@ -103,9 +104,6 @@ fun SettingsScreen(
     onSetExportEndDate: (String) -> Unit,
     onSetExportFormat: (ExportFormat) -> Unit,
     onToggleAdvancedSettings: () -> Unit,
-    onUseMiniMaxDefaults: () -> Unit,
-    onUseQwenDefaults: () -> Unit,
-    onUseAliyunSpeechDefaults: () -> Unit,
     onSaveSpeechSettings: () -> Unit,
     onSaveAnalysisSettings: () -> Unit,
     onGenerateTodaySummary: () -> Unit,
@@ -116,10 +114,6 @@ fun SettingsScreen(
 ) {
     val settings = uiState.settings
     val context = LocalContext.current
-    val minimaxModels = listOf("MiniMax-M2.5", "MiniMax-M2.7", "MiniMax-M2.5-highspeed")
-    val qwenModels = listOf("qwen-plus", "qwen-turbo", "qwen-max-latest")
-    val aliyunSpeechModels = listOf("qwen3-asr-flash")
-    val analysisModels = if (settings.analysisServiceType == AnalysisServiceType.QWEN) qwenModels else minimaxModels
     val isDarkMode = settings.themeMode == ThemeMode.DARK
     val customTags = remember(settings.customTags) { settings.customTags.split("\n").map { it.trim() }.filter { it.isNotBlank() } }
     var newTagInput by rememberSaveable { mutableStateOf("") }
@@ -178,11 +172,15 @@ fun SettingsScreen(
             )
             SectionCard {
                 SectionHeader("服务配置", if (uiState.showAdvancedSettings) "收起" else "展开", onToggleAdvancedSettings)
-                Text("配置语音识别和 AI 分析服务。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ServiceStatusRow("语音转文字", settings.speechProviderType.displayName())
+                ServiceStatusRow(
+                    "AI 分析",
+                    if (settings.analysisProviderType == AnalysisProviderType.MOCK) "未启用" else settings.analysisServiceType.preset().displayName
+                )
                 AnimatedVisibility(visible = uiState.showAdvancedSettings) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        SpeechConfigSection(settings, onSetSpeechProviderType, onSetAliyunSpeechModel, onSetAliyunSpeechApiKey, onUseAliyunSpeechDefaults, onSetBaiduApiKey, onSetBaiduSecretKey, onSetBaiduAppId, onSetBaiduSpeechUrl, onSetBaiduTokenUrl, onSetBaiduDevPid, onSetSpeechBaseUrl, onSetSpeechApiPath, onSetSpeechModel, onSetSpeechApiKey, onSaveSpeechSettings, uiState.isTestingSpeechConfig, aliyunSpeechModels)
-                        AnalysisConfigSection(settings, onSetAnalysisProviderType, onSetAnalysisServiceType, onSetAnalysisModel, onSetAnalysisApiKey, onSetAnalysisPromptTemplate, onUseMiniMaxDefaults, onUseQwenDefaults, onSaveAnalysisSettings, uiState.isTestingAnalysisConfig, analysisModels)
+                        SpeechConfigSection(settings, onSetSpeechProviderType, onSetAliyunSpeechApiKey, onSetBaiduApiKey, onSetBaiduSecretKey, onSetBaiduAppId, onSetSpeechBaseUrl, onSetSpeechApiPath, onSetSpeechModel, onSetSpeechApiKey, onSaveSpeechSettings, uiState.isTestingSpeechConfig)
+                        AnalysisConfigSection(settings, onSetAnalysisProviderType, onSetAnalysisServiceType, onSetAnalysisModel, onSetAnalysisBaseUrl, onSetAnalysisApiPath, onSetAnalysisApiKey, onSetAnalysisPromptTemplate, onSaveAnalysisSettings, uiState.isTestingAnalysisConfig)
                     }
                 }
             }
@@ -195,36 +193,125 @@ fun SettingsScreen(
 }
 }
 
-@Composable @OptIn(ExperimentalLayoutApi::class)
-private fun SpeechConfigSection(settings: com.dreamjournal.app.domain.settings.AppSettings, onSetSpeechProviderType: (SpeechProviderType) -> Unit, onSetAliyunSpeechModel: (String) -> Unit, onSetAliyunSpeechApiKey: (String) -> Unit, onUseAliyunSpeechDefaults: () -> Unit, onSetBaiduApiKey: (String) -> Unit, onSetBaiduSecretKey: (String) -> Unit, onSetBaiduAppId: (String) -> Unit, onSetBaiduSpeechUrl: (String) -> Unit, onSetBaiduTokenUrl: (String) -> Unit, onSetBaiduDevPid: (String) -> Unit, onSetSpeechBaseUrl: (String) -> Unit, onSetSpeechApiPath: (String) -> Unit, onSetSpeechModel: (String) -> Unit, onSetSpeechApiKey: (String) -> Unit, onSaveSpeechSettings: () -> Unit, isTesting: Boolean, aliyunSpeechModels: List<String>) {
+@Composable
+private fun SpeechConfigSection(settings: com.dreamjournal.app.domain.settings.AppSettings, onSetSpeechProviderType: (SpeechProviderType) -> Unit, onSetAliyunSpeechApiKey: (String) -> Unit, onSetBaiduApiKey: (String) -> Unit, onSetBaiduSecretKey: (String) -> Unit, onSetBaiduAppId: (String) -> Unit, onSetSpeechBaseUrl: (String) -> Unit, onSetSpeechApiPath: (String) -> Unit, onSetSpeechModel: (String) -> Unit, onSetSpeechApiKey: (String) -> Unit, onSaveSpeechSettings: () -> Unit, isTesting: Boolean) {
     SubSectionCard("语音转文字") {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            SpeechProviderType.entries.forEach { p -> FilterChip(selected = settings.speechProviderType == p, onClick = { onSetSpeechProviderType(p) }, label = { Text(when(p) { SpeechProviderType.ALIYUN_QWEN_ASR -> "阿里云"; SpeechProviderType.BAIDU_ASR -> "百度"; SpeechProviderType.SYSTEM -> "系统识别"; SpeechProviderType.OPENAI_COMPATIBLE -> "兼容模式"; SpeechProviderType.MOCK -> "Mock" }) }) }
-        }
+        Text("录完后自动转成可编辑文字。推荐继续使用阿里云。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ServicePicker(
+            label = "识别服务",
+            selected = settings.speechProviderType,
+            selectedLabel = settings.speechProviderType.displayName(),
+            options = listOf(
+                SpeechProviderType.ALIYUN_QWEN_ASR to "阿里云百炼（推荐）",
+                SpeechProviderType.SYSTEM to "手机系统识别",
+                SpeechProviderType.BAIDU_ASR to "百度短语音",
+                SpeechProviderType.OPENAI_COMPATIBLE to "其他兼容服务"
+            ) + if (settings.speechProviderType == SpeechProviderType.MOCK) listOf(SpeechProviderType.MOCK to "演示模式") else emptyList(),
+            onSelected = onSetSpeechProviderType
+        )
         when (settings.speechProviderType) {
-            SpeechProviderType.ALIYUN_QWEN_ASR -> { Text("推荐用于录完再识别。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { aliyunSpeechModels.forEach { m -> FilterChip(selected = settings.aliyunSpeechModel == m, onClick = { onSetAliyunSpeechModel(m) }, label = { Text(m) }) } }; OutlinedTextField(value = settings.aliyunSpeechApiKey, onValueChange = onSetAliyunSpeechApiKey, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("阿里云 API Key") }, shape = RoundedCornerShape(12.dp)); TextButton(onClick = onUseAliyunSpeechDefaults) { Text("恢复默认") } }
-            SpeechProviderType.BAIDU_ASR -> { Text("适合短语音或备用识别。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); OutlinedTextField(value = settings.baiduApiKey, onValueChange = onSetBaiduApiKey, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("百度 API Key") }, shape = RoundedCornerShape(12.dp)); OutlinedTextField(value = settings.baiduSecretKey, onValueChange = onSetBaiduSecretKey, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("百度 Secret Key") }, shape = RoundedCornerShape(12.dp)); OutlinedTextField(value = settings.baiduAppId, onValueChange = onSetBaiduAppId, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("百度 AppID") }, shape = RoundedCornerShape(12.dp)); TextButton(onClick = { onSetBaiduSpeechUrl("http://vop.baidu.com/server_api"); onSetBaiduTokenUrl("https://aip.baidubce.com/oauth/2.0/token"); onSetBaiduDevPid("1537") }) { Text("恢复默认") } }
-            SpeechProviderType.OPENAI_COMPATIBLE -> { Text("兼容 OpenAI 的语音服务。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); OutlinedTextField(value = settings.speechBaseUrl, onValueChange = onSetSpeechBaseUrl, modifier = Modifier.fillMaxWidth(), label = { Text("Base URL") }, shape = RoundedCornerShape(12.dp)); OutlinedTextField(value = settings.speechApiPath, onValueChange = onSetSpeechApiPath, modifier = Modifier.fillMaxWidth(), label = { Text("API Path") }, shape = RoundedCornerShape(12.dp)); OutlinedTextField(value = settings.speechModel, onValueChange = onSetSpeechModel, modifier = Modifier.fillMaxWidth(), label = { Text("模型") }, shape = RoundedCornerShape(12.dp)); OutlinedTextField(value = settings.speechApiKey, onValueChange = onSetSpeechApiKey, modifier = Modifier.fillMaxWidth(), label = { Text("API Key") }, shape = RoundedCornerShape(12.dp)) }
+            SpeechProviderType.ALIYUN_QWEN_ASR -> {
+                OutlinedTextField(value = settings.aliyunSpeechApiKey, onValueChange = onSetAliyunSpeechApiKey, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("阿里云 API Key") }, visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(14.dp))
+                Text("模型已自动选择 qwen3-asr-flash，无需填写地址。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            SpeechProviderType.BAIDU_ASR -> {
+                Text("百度适合 60 秒内短录音，需要三项控制台凭证。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SecretField("百度 API Key", settings.baiduApiKey, onSetBaiduApiKey)
+                SecretField("百度 Secret Key", settings.baiduSecretKey, onSetBaiduSecretKey)
+                OutlinedTextField(value = settings.baiduAppId, onValueChange = onSetBaiduAppId, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("百度 AppID") }, shape = RoundedCornerShape(14.dp))
+            }
+            SpeechProviderType.OPENAI_COMPATIBLE -> {
+                Text("高级选项，适合已经知道接口地址的服务。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(value = settings.speechBaseUrl, onValueChange = onSetSpeechBaseUrl, modifier = Modifier.fillMaxWidth(), label = { Text("Base URL") }, shape = RoundedCornerShape(14.dp))
+                OutlinedTextField(value = settings.speechApiPath, onValueChange = onSetSpeechApiPath, modifier = Modifier.fillMaxWidth(), label = { Text("API Path") }, shape = RoundedCornerShape(14.dp))
+                OutlinedTextField(value = settings.speechModel, onValueChange = onSetSpeechModel, modifier = Modifier.fillMaxWidth(), label = { Text("模型") }, shape = RoundedCornerShape(14.dp))
+                SecretField("API Key", settings.speechApiKey, onSetSpeechApiKey)
+            }
             SpeechProviderType.SYSTEM -> { Text("不需要 API Key，直接调用手机内置语音识别。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             SpeechProviderType.MOCK -> { Text("演示模式。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        Button(onClick = onSaveSpeechSettings, modifier = Modifier.fillMaxWidth(), enabled = !isTesting, shape = RoundedCornerShape(12.dp)) { Text(if (isTesting) "正在测试…" else "保存并测试语音配置") }
+        Button(onClick = onSaveSpeechSettings, modifier = Modifier.fillMaxWidth(), enabled = !isTesting, shape = RoundedCornerShape(14.dp)) { Text(if (isTesting) "正在测试…" else "保存并测试") }
     }
 }
 
-@Composable @OptIn(ExperimentalLayoutApi::class)
-private fun AnalysisConfigSection(settings: com.dreamjournal.app.domain.settings.AppSettings, onSetAnalysisProviderType: (AnalysisProviderType) -> Unit, onSetAnalysisServiceType: (AnalysisServiceType) -> Unit, onSetAnalysisModel: (String) -> Unit, onSetAnalysisApiKey: (String) -> Unit, onSetAnalysisPromptTemplate: (String) -> Unit, onUseMiniMaxDefaults: () -> Unit, onUseQwenDefaults: () -> Unit, onSaveAnalysisSettings: () -> Unit, isTesting: Boolean, analysisModels: List<String>) {
+@Composable
+private fun AnalysisConfigSection(settings: com.dreamjournal.app.domain.settings.AppSettings, onSetAnalysisProviderType: (AnalysisProviderType) -> Unit, onSetAnalysisServiceType: (AnalysisServiceType) -> Unit, onSetAnalysisModel: (String) -> Unit, onSetAnalysisBaseUrl: (String) -> Unit, onSetAnalysisApiPath: (String) -> Unit, onSetAnalysisApiKey: (String) -> Unit, onSetAnalysisPromptTemplate: (String) -> Unit, onSaveAnalysisSettings: () -> Unit, isTesting: Boolean) {
+    var showPrompt by rememberSaveable { mutableStateOf(false) }
+    val preset = settings.analysisServiceType.preset()
     SubSectionCard("AI 分析") {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { FilterChip(selected = settings.analysisProviderType == AnalysisProviderType.OPENAI_COMPATIBLE, onClick = { onSetAnalysisProviderType(AnalysisProviderType.OPENAI_COMPATIBLE) }, label = { Text("启用 AI") }); FilterChip(selected = settings.analysisProviderType == AnalysisProviderType.MOCK, onClick = { onSetAnalysisProviderType(AnalysisProviderType.MOCK) }, label = { Text("Mock") }) }
+        PreferenceRow("启用 AI 分析", "服务配置只保存在本机") {
+            Switch(checked = settings.analysisProviderType == AnalysisProviderType.OPENAI_COMPATIBLE, onCheckedChange = { onSetAnalysisProviderType(if (it) AnalysisProviderType.OPENAI_COMPATIBLE else AnalysisProviderType.MOCK) })
+        }
         if (settings.analysisProviderType == AnalysisProviderType.OPENAI_COMPATIBLE) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { FilterChip(selected = settings.analysisServiceType == AnalysisServiceType.MINIMAX, onClick = { onSetAnalysisServiceType(AnalysisServiceType.MINIMAX) }, label = { Text("MiniMax") }); FilterChip(selected = settings.analysisServiceType == AnalysisServiceType.QWEN, onClick = { onSetAnalysisServiceType(AnalysisServiceType.QWEN) }, label = { Text("通义千问") }) }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { analysisModels.forEach { m -> FilterChip(selected = settings.analysisModel == m, onClick = { onSetAnalysisModel(m) }, label = { Text(m) }) } }
-            OutlinedTextField(value = settings.analysisApiKey, onValueChange = onSetAnalysisApiKey, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(if (settings.analysisServiceType == AnalysisServiceType.QWEN) "通义千问 API Key" else "MiniMax API Key") }, shape = RoundedCornerShape(12.dp))
-            OutlinedTextField(value = settings.analysisPromptTemplate, onValueChange = onSetAnalysisPromptTemplate, modifier = Modifier.fillMaxWidth(), minLines = 3, label = { Text("分析提示词") }, shape = RoundedCornerShape(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = onUseMiniMaxDefaults) { Text("MiniMax 默认") }; TextButton(onClick = onUseQwenDefaults) { Text("千问默认") } }
-            Button(onClick = onSaveAnalysisSettings, modifier = Modifier.fillMaxWidth(), enabled = !isTesting, shape = RoundedCornerShape(12.dp)) { Text(if (isTesting) "正在测试…" else "保存并测试 AI 配置") }
-        } else { Text("当前是演示模式。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            ServicePicker(
+                label = "模型服务",
+                selected = settings.analysisServiceType,
+                selectedLabel = preset.displayName,
+                options = AnalysisServiceType.entries.map { it to it.preset().displayName },
+                onSelected = onSetAnalysisServiceType
+            )
+            if (settings.analysisServiceType == AnalysisServiceType.CUSTOM) {
+                OutlinedTextField(value = settings.analysisBaseUrl, onValueChange = onSetAnalysisBaseUrl, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Base URL") }, shape = RoundedCornerShape(14.dp))
+                OutlinedTextField(value = settings.analysisApiPath, onValueChange = onSetAnalysisApiPath, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("API Path") }, shape = RoundedCornerShape(14.dp))
+                OutlinedTextField(value = settings.analysisModel, onValueChange = onSetAnalysisModel, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("模型名称") }, shape = RoundedCornerShape(14.dp))
+            } else {
+                ServicePicker(label = "模型", selected = settings.analysisModel, selectedLabel = settings.analysisModel, options = preset.models.map { it to it }, onSelected = onSetAnalysisModel)
+            }
+            SecretField("${preset.displayName} API Key", settings.analysisApiKey, onSetAnalysisApiKey)
+            TextButton(onClick = { showPrompt = !showPrompt }) { Text(if (showPrompt) "收起分析提示词" else "自定义分析提示词") }
+            AnimatedVisibility(visible = showPrompt) {
+                OutlinedTextField(value = settings.analysisPromptTemplate, onValueChange = onSetAnalysisPromptTemplate, modifier = Modifier.fillMaxWidth(), minLines = 3, label = { Text("分析提示词（可选）") }, shape = RoundedCornerShape(14.dp))
+            }
+            Button(onClick = onSaveAnalysisSettings, modifier = Modifier.fillMaxWidth(), enabled = !isTesting, shape = RoundedCornerShape(14.dp)) { Text(if (isTesting) "正在测试…" else "保存并测试") }
+        } else { Text("AI 分析已关闭，记录与导出功能不受影响。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
+}
+
+@Composable
+private fun <T> ServicePicker(label: String, selected: T, selectedLabel: String, options: List<Pair<T, String>>, onSelected: (T) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.52f)).clickable { expanded = true }.padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(selectedLabel, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            }
+            Text("选择", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (value, text) ->
+                DropdownMenuItem(
+                    text = { Text(text, fontWeight = if (value == selected) FontWeight.SemiBold else FontWeight.Normal) },
+                    onClick = { expanded = false; onSelected(value) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SecretField(label: String, value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(value = value, onValueChange = onValueChange, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(label) }, visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(14.dp))
+}
+
+@Composable
+private fun ServiceStatusRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+private fun SpeechProviderType.displayName(): String = when (this) {
+    SpeechProviderType.ALIYUN_QWEN_ASR -> "阿里云百炼"
+    SpeechProviderType.BAIDU_ASR -> "百度短语音"
+    SpeechProviderType.SYSTEM -> "手机系统识别"
+    SpeechProviderType.OPENAI_COMPATIBLE -> "其他兼容服务"
+    SpeechProviderType.MOCK -> "演示模式"
 }
 
 @Composable @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
@@ -427,8 +514,8 @@ private fun ExportRangePicker(selectedStart: String, selectedEnd: String, marked
     }
 }
 
-@Composable private fun SectionCard(content: @Composable () -> Unit) { Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = glassCardColor(0.70f)), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) { Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() } } }
-@Composable private fun SubSectionCard(title: String, content: @Composable () -> Unit) { Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.68f))) { Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium); content() } } }
+@Composable private fun SectionCard(content: @Composable () -> Unit) { Card(modifier = Modifier.fillMaxWidth().glassSurface(radius = 22.dp, alpha = 0.66f), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = Color.Transparent), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) { Column(modifier = Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() } } }
+@Composable private fun SubSectionCard(title: String, content: @Composable () -> Unit) { Card(modifier = Modifier.fillMaxWidth().glassSurface(radius = 18.dp, alpha = 0.56f), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.Transparent), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) { Column(modifier = Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) { Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium); content() } } }
 @Composable private fun SectionHeader(title: String, actionText: String, onAction: () -> Unit, enabled: Boolean = true) { Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) { Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); TextButton(onClick = onAction, enabled = enabled) { Text(actionText) } } }
 @Composable private fun PreferenceRow(title: String, subtitle: String, trailing: @Composable () -> Unit) { Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) { Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) { Text(title, style = MaterialTheme.typography.titleSmall); Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }; trailing() } }
 @Composable private fun StatCard(modifier: Modifier, title: String, value: String) { Card(modifier = modifier, shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold) } } }

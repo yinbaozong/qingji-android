@@ -15,6 +15,7 @@ import com.dreamjournal.app.domain.settings.AnalysisServiceType
 import com.dreamjournal.app.domain.settings.AppSettings
 import com.dreamjournal.app.domain.settings.SpeechProviderType
 import com.dreamjournal.app.domain.settings.ThemeMode
+import com.dreamjournal.app.domain.settings.preset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,11 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
-private const val APP_VERSION_NAME = "1.3.7"
-private const val MINIMAX_BASE_URL = "https://api.minimaxi.com/v1"
-private const val MINIMAX_API_PATH = "/chat/completions"
-private const val QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-private const val QWEN_API_PATH = "/chat/completions"
+private const val APP_VERSION_NAME = "1.4.0"
 private const val ALIYUN_SPEECH_BASE_URL = "https://dashscope.aliyuncs.com/api/v1"
 private const val ALIYUN_SPEECH_API_PATH = "/services/aigc/multimodal-generation/generation"
 
@@ -128,8 +125,16 @@ class SettingsViewModel(
 
     fun setAnalysisServiceType(type: AnalysisServiceType) {
         updateSettings { current ->
-            applyAnalysisServicePreset(type, current.copy(analysisServiceType = type))
+            applyAnalysisServicePreset(type, current)
         }
+    }
+
+    fun setAnalysisBaseUrl(value: String) {
+        updateSettings { it.copy(analysisBaseUrl = value) }
+    }
+
+    fun setAnalysisApiPath(value: String) {
+        updateSettings { it.copy(analysisApiPath = value) }
     }
 
     fun setSpeechBaseUrl(value: String) {
@@ -152,31 +157,6 @@ class SettingsViewModel(
         updateSettings { it.copy(aliyunSpeechApiKey = value) }
     }
 
-    fun setAliyunSpeechModel(value: String) {
-        updateSettings { current ->
-            current.copy(aliyunSpeechModel = value.ifBlank { "qwen3-asr-flash" })
-        }
-    }
-
-    fun useAliyunSpeechDefaults() {
-        updateSettings {
-            it.copy(
-                speechProviderType = SpeechProviderType.ALIYUN_QWEN_ASR,
-                aliyunSpeechBaseUrl = ALIYUN_SPEECH_BASE_URL,
-                aliyunSpeechApiPath = ALIYUN_SPEECH_API_PATH,
-                aliyunSpeechModel = "qwen3-asr-flash"
-            )
-        }
-    }
-
-    fun setBaiduSpeechUrl(value: String) {
-        updateSettings { it.copy(baiduSpeechUrl = value) }
-    }
-
-    fun setBaiduTokenUrl(value: String) {
-        updateSettings { it.copy(baiduTokenUrl = value) }
-    }
-
     fun setBaiduApiKey(value: String) {
         updateSettings { it.copy(baiduApiKey = value) }
     }
@@ -189,16 +169,14 @@ class SettingsViewModel(
         updateSettings { it.copy(baiduAppId = value) }
     }
 
-    fun setBaiduDevPid(value: String) {
-        updateSettings { it.copy(baiduDevPid = value) }
-    }
-
     fun setAnalysisModel(value: String) {
         updateSettings { it.copy(analysisModel = value) }
     }
 
     fun setAnalysisApiKey(value: String) {
-        updateSettings { it.copy(analysisApiKey = value) }
+        updateSettings { current ->
+            current.copy(analysisApiKey = value).storeActiveAnalysisKey(value)
+        }
     }
 
     fun setAnalysisPromptTemplate(value: String) {
@@ -226,30 +204,6 @@ class SettingsViewModel(
             )
         }
         _uiState.update { it.copy(statusMessage = "已移除标签：$tag") }
-    }
-
-    fun useMiniMaxDefaults() {
-        updateSettings {
-            applyAnalysisServicePreset(
-                AnalysisServiceType.MINIMAX,
-                it.copy(
-                    analysisProviderType = AnalysisProviderType.OPENAI_COMPATIBLE,
-                    analysisServiceType = AnalysisServiceType.MINIMAX
-                )
-            )
-        }
-    }
-
-    fun useQwenDefaults() {
-        updateSettings {
-            applyAnalysisServicePreset(
-                AnalysisServiceType.QWEN,
-                it.copy(
-                    analysisProviderType = AnalysisProviderType.OPENAI_COMPATIBLE,
-                    analysisServiceType = AnalysisServiceType.QWEN
-                )
-            )
-        }
     }
 
     fun toggleAdvancedSettings() {
@@ -492,26 +446,35 @@ class SettingsViewModel(
     }
 
     private fun applyAnalysisServicePreset(serviceType: AnalysisServiceType, settings: AppSettings): AppSettings {
-        return when (serviceType) {
-            AnalysisServiceType.MINIMAX -> settings.copy(
-                analysisBaseUrl = MINIMAX_BASE_URL,
-                analysisApiPath = MINIMAX_API_PATH,
-                analysisModel = if (settings.analysisModel.startsWith("qwen")) {
-                    "MiniMax-M2.5"
-                } else {
-                    settings.analysisModel.ifBlank { "MiniMax-M2.5" }
-                }
-            )
-            AnalysisServiceType.QWEN -> settings.copy(
-                analysisBaseUrl = QWEN_BASE_URL,
-                analysisApiPath = QWEN_API_PATH,
-                analysisModel = if (settings.analysisModel.startsWith("MiniMax")) {
-                    "qwen-plus"
-                } else {
-                    settings.analysisModel.ifBlank { "qwen-plus" }
-                }
-            )
-        }
+        val stored = settings.storeActiveAnalysisKey(settings.analysisApiKey)
+        val preset = serviceType.preset()
+        val targetKey = stored.analysisKeyFor(serviceType)
+        val keepCustomValues = serviceType == AnalysisServiceType.CUSTOM &&
+            stored.analysisServiceType == AnalysisServiceType.CUSTOM
+        return stored.copy(
+            analysisProviderType = AnalysisProviderType.OPENAI_COMPATIBLE,
+            analysisServiceType = serviceType,
+            analysisBaseUrl = if (keepCustomValues) stored.analysisBaseUrl else preset.baseUrl,
+            analysisApiPath = if (keepCustomValues) stored.analysisApiPath else preset.apiPath,
+            analysisModel = if (keepCustomValues) stored.analysisModel else preset.defaultModel,
+            analysisApiKey = targetKey
+        )
+    }
+
+    private fun AppSettings.analysisKeyFor(type: AnalysisServiceType): String = when (type) {
+        AnalysisServiceType.MINIMAX -> minimaxAnalysisApiKey
+        AnalysisServiceType.QWEN -> qwenAnalysisApiKey
+        AnalysisServiceType.DEEPSEEK -> deepSeekAnalysisApiKey
+        AnalysisServiceType.ZHIPU -> zhipuAnalysisApiKey
+        AnalysisServiceType.CUSTOM -> customAnalysisApiKey
+    }
+
+    private fun AppSettings.storeActiveAnalysisKey(value: String): AppSettings = when (analysisServiceType) {
+        AnalysisServiceType.MINIMAX -> copy(minimaxAnalysisApiKey = value)
+        AnalysisServiceType.QWEN -> copy(qwenAnalysisApiKey = value)
+        AnalysisServiceType.DEEPSEEK -> copy(deepSeekAnalysisApiKey = value)
+        AnalysisServiceType.ZHIPU -> copy(zhipuAnalysisApiKey = value)
+        AnalysisServiceType.CUSTOM -> copy(customAnalysisApiKey = value)
     }
 
     private fun buildTodayText(entries: List<DreamEntryEntity>): String {
