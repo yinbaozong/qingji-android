@@ -27,7 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
-private const val APP_VERSION_NAME = "1.4.0"
+private const val APP_VERSION_NAME = "1.4.1"
 private const val ALIYUN_SPEECH_BASE_URL = "https://dashscope.aliyuncs.com/api/v1"
 private const val ALIYUN_SPEECH_API_PATH = "/services/aigc/multimodal-generation/generation"
 

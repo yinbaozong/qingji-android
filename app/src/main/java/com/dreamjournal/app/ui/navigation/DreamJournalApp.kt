@@ -9,6 +9,7 @@ import android.graphics.Color as AndroidColor
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
@@ -143,6 +144,9 @@ fun DreamJournalApp(container: AppContainer) {
 
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
+            // Screens own their status-bar inset. Passing it from this root Scaffold as well
+            // caused the home header to reserve the same top space twice.
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 if (showBottomBar) {
                     NavigationBar(

@@ -146,6 +146,12 @@ QingJi is a working, local-first MVP. The core loop is already here: capture qui
 
 If QingJi helps you keep one dream or one ordinary moment that would otherwise disappear, a Star is a lovely way to let the project know it found a place in someone's life.
 
+## v1.4.1
+
+Hotfix: removes the duplicate status-bar inset that left too much blank space above the home timeline on edge-to-edge Android devices.
+
+修复：首页在沉浸式状态栏设备上重复计算安全区，导致顶部留白过大的问题。
+
 ## v1.4.0
 
 - 重做全局雾面玻璃视觉，并让 Android 状态栏与页面背景统一。
