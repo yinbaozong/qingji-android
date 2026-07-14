@@ -136,6 +136,14 @@ The app remains useful without any key. Configure a provider only when you want 
 - Provider interfaces for speech-to-text and AI analysis
 - Android system sharing for TXT, Markdown, and ZIP exports
 
+## 技术维护说明 / Technical maintenance
+
+瞬记从“梦境记录”起步，后来扩展为日常与夜间都能快速留下来的工具。因此，源码中的内部包名仍是 `com.dreamjournal.app`。这不是用户可见的产品名称，也不是遗忘改名：它是已安装版本的应用身份和本地数据命名空间。现在直接改掉会让 Android 把它当成另一个 App，已有记录、录音和设置都不会自动跟过去。
+
+QingJi started as a dream journal and grew into a faster place for both daytime and nighttime notes. Its internal package name remains `com.dreamjournal.app` on purpose. It is the installed app identity and the namespace for local data; changing it now would make Android treat QingJi as a different app and would break the upgrade path for existing entries, recordings, and settings.
+
+The current build baseline is JDK 17, Gradle 8.9, Android Gradle Plugin 8.5.2, Kotlin 1.9.24, and Compose BOM 2024.09.00. It is tested in CI and intentionally kept stable for the current APK line. Dependency modernization and any future package migration are documented separately in [Technical Status](docs/TECHNICAL_STATUS.md); both need an isolated compatibility pass rather than an incidental version bump.
+
 ## 开发状态 / Project status
 
 当前版本是一个可运行的本地优先 MVP。它已经覆盖“快速留下、回来整理、带走数据”这条完整路径；同步、多设备备份和更丰富的编辑能力仍然值得慢慢打磨。
